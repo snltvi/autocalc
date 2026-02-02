@@ -11,9 +11,9 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Калькулятор">
     <meta name="theme-color" content="#0057B7">
-    <link rel="manifest" href="manifest.json?v=2.1">
+    <link rel="manifest" href="manifest.json?v=2.3">
     <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect fill='%230057B7' width='200' height='200'/%3E%3Ctext x='100' y='120' font-size='100' text-anchor='middle' fill='white'%3E🚛%3C/text%3E%3C/svg%3E">
-    <title>Калькулятор собівартості рейсу v2.1</title>
+    <title>Калькулятор собівартості рейсу v2.3</title>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -323,6 +323,28 @@
             font-weight: 700;
             color: var(--primary);
         }
+
+        /* Print styles */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            
+            #waybillPrint, #waybillPrint * {
+                visibility: visible;
+            }
+            
+            #waybillPrint {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+            }
+            
+            .no-print {
+                display: none !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -330,7 +352,7 @@
         <div class="header">
             <h1>🚛 Калькулятор собівартості</h1>
             <p>Розрахунок витрат на рейс</p>
-            <div style="margin-top: 8px; font-size: 0.75rem; opacity: 0.7;">v2.1 - Автозаповнення вулиць</div>
+            <div style="margin-top: 8px; font-size: 0.75rem; opacity: 0.7;">v2.3 - PDF з авто-назвою + Різниця пробігу</div>
         </div>
 
         <div class="card">
@@ -651,6 +673,71 @@
         </div>
 
         <div class="card">
+            <h2>🚗 Показання приладів</h2>
+            
+            <div class="grid-2">
+                <div class="form-group">
+                    <label for="odometerStart">Одометр на початок</label>
+                    <div class="input-group">
+                        <input type="number" id="odometerStart" value="0" step="1" inputmode="numeric">
+                        <span class="input-suffix">км</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="odometerEnd">Одометр в кінці</label>
+                    <div class="input-group">
+                        <input type="number" id="odometerEnd" value="0" step="1" inputmode="numeric">
+                        <span class="input-suffix">км</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div class="form-group">
+                    <label for="fuelStart">Паливо на початок</label>
+                    <div class="input-group">
+                        <input type="number" id="fuelStart" value="0" step="1" inputmode="numeric">
+                        <span class="input-suffix">л</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="fuelEnd">Паливо в кінці</label>
+                    <div class="input-group">
+                        <input type="number" id="fuelEnd" value="0" step="1" inputmode="numeric">
+                        <span class="input-suffix">л</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="fuelRefill">Заправлено в дорозі</label>
+                <div class="input-group">
+                    <input type="number" id="fuelRefill" value="0" step="1" inputmode="numeric">
+                    <span class="input-suffix">л</span>
+                </div>
+                <small class="hint">💡 Скільки літрів заправили під час рейсу</small>
+            </div>
+
+            <div id="fuelCalculation" style="display: none; background: #e3f2fd; padding: 15px; border-radius: 10px; margin-top: 10px;">
+                <div style="font-weight: 600; color: var(--primary); margin-bottom: 8px;">📊 Автоматичний розрахунок:</div>
+                <div style="display: flex; justify-content: space-between; padding: 5px 0;">
+                    <span>Пробіг за рейс (різниця):</span>
+                    <span id="calculatedDistance" style="font-weight: 700;">0 км</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 5px 0;">
+                    <span>Витрачено палива:</span>
+                    <span id="calculatedFuelUsed" style="font-weight: 700;">0 л</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 5px 0;">
+                    <span>Фактична витрата:</span>
+                    <span id="calculatedConsumption" style="font-weight: 700; color: var(--primary);">0 л/100км</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
             <h2>⛽ Паливо</h2>
             
             <div class="grid-2">
@@ -721,6 +808,10 @@
             </div>
 
             <button class="btn" onclick="calculate()">Розрахувати собівартість</button>
+            
+            <button class="btn" onclick="printWaybill()" style="margin-top: 10px; background: linear-gradient(135deg, #FF6B35 0%, #F7931E 100%);">
+                🖨️ Путивний лист (друк/PDF)
+            </button>
         </div>
 
         <div class="results" id="results">
@@ -1598,12 +1689,265 @@
             }
         });
 
+        // Auto-calculate fuel consumption from odometer and tank readings
+        function calculateFuelData() {
+            const odometerStart = parseFloat(document.getElementById('odometerStart').value) || 0;
+            const odometerEnd = parseFloat(document.getElementById('odometerEnd').value) || 0;
+            const fuelStart = parseFloat(document.getElementById('fuelStart').value) || 0;
+            const fuelEnd = parseFloat(document.getElementById('fuelEnd').value) || 0;
+            const fuelRefill = parseFloat(document.getElementById('fuelRefill').value) || 0;
+
+            // Calculate distance from odometer
+            const calculatedDistance = odometerEnd - odometerStart;
+            
+            // Calculate fuel used: (start + refill - end)
+            const fuelUsed = fuelStart + fuelRefill - fuelEnd;
+            
+            // Calculate consumption per 100km
+            const consumption = calculatedDistance > 0 ? (fuelUsed / calculatedDistance * 100) : 0;
+
+            // Display results if we have valid data
+            if (calculatedDistance > 0) {
+                document.getElementById('calculatedDistance').textContent = calculatedDistance.toFixed(0) + ' км';
+                document.getElementById('calculatedFuelUsed').textContent = fuelUsed.toFixed(1) + ' л';
+                document.getElementById('calculatedConsumption').textContent = consumption.toFixed(2) + ' л/100км';
+                document.getElementById('fuelCalculation').style.display = 'block';
+                
+                // Auto-fill distance field
+                document.getElementById('distance').value = calculatedDistance;
+                
+                // Auto-fill fuel consumption if reasonable (between 15-40 l/100km)
+                if (consumption >= 15 && consumption <= 40) {
+                    document.getElementById('fuelConsumption').value = consumption.toFixed(1);
+                }
+            } else {
+                document.getElementById('fuelCalculation').style.display = 'none';
+            }
+        }
+
+        // Add listeners to odometer and fuel fields
+        ['odometerStart', 'odometerEnd', 'fuelStart', 'fuelEnd', 'fuelRefill'].forEach(id => {
+            document.getElementById(id).addEventListener('input', calculateFuelData);
+        });
+
+        // Function to generate and print waybill
+        function printWaybill() {
+            // Get all data
+            const driver = document.getElementById('driver');
+            const driverName = driver.options[driver.selectedIndex].text;
+            const truck = document.getElementById('truck').value;
+            const trailer = document.getElementById('trailer').value;
+            
+            const fromCity = document.getElementById('fromCity').value;
+            const fromStreet = document.getElementById('fromStreet').value;
+            const fromHouse = document.getElementById('fromHouse').value;
+            const toCity = document.getElementById('toCity').value;
+            const toStreet = document.getElementById('toStreet').value;
+            const toHouse = document.getElementById('toHouse').value;
+            
+            let fromAddress = fromCity;
+            if (fromStreet) fromAddress += ', ' + fromStreet;
+            if (fromHouse) fromAddress += ', ' + fromHouse;
+            
+            let toAddress = toCity;
+            if (toStreet) toAddress += ', ' + toStreet;
+            if (toHouse) toAddress += ', ' + toHouse;
+            
+            const distance = document.getElementById('distance').value;
+            const days = document.getElementById('days').value;
+            const odometerStart = document.getElementById('odometerStart').value;
+            const odometerEnd = document.getElementById('odometerEnd').value;
+            const fuelStart = document.getElementById('fuelStart').value;
+            const fuelEnd = document.getElementById('fuelEnd').value;
+            const fuelRefill = document.getElementById('fuelRefill').value;
+            const fuelConsumption = document.getElementById('fuelConsumption').value;
+            const fuelPrice = document.getElementById('fuelPrice').value;
+            
+            // Calculate mileage difference
+            const mileageDiff = odometerEnd && odometerStart ? (parseFloat(odometerEnd) - parseFloat(odometerStart)) : 0;
+            
+            // Validate required fields
+            if (!driverName || driverName === '-- Виберіть водія --') {
+                alert('Виберіть водія');
+                return;
+            }
+            if (!fromCity || !toCity) {
+                alert('Заповніть пункти відправлення та призначення');
+                return;
+            }
+            
+            // Get current date
+            const today = new Date();
+            const dateStr = today.toLocaleDateString('uk-UA', { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+            
+            // Generate filename: TruckNumber_StartOdometer-EndOdometer_DriverSurname.pdf
+            // Example: BH5291PX_125000-125540_Стародуб.pdf
+            const driverSurname = driverName.split(' ')[0]; // First word is surname
+            const filename = `${truck || 'Авто'}_${odometerStart || '0'}-${odometerEnd || '0'}_${driverSurname}.pdf`;
+            
+            // Store filename for print dialog
+            window.waybillFilename = filename;
+            
+            // Create waybill HTML
+            const waybillHTML = `
+                <div id="waybillPrint" style="padding: 40px; font-family: 'Manrope', Arial, sans-serif; max-width: 800px; margin: 0 auto;">
+                    <div style="text-align: center; margin-bottom: 30px;">
+                        <h1 style="margin: 0; font-size: 24px; text-transform: uppercase;">ПУТИВНИЙ ЛИСТ</h1>
+                        <p style="margin: 5px 0; color: #666;">вантажного автомобіля</p>
+                        <p style="margin: 5px 0; color: #666;">${dateStr}</p>
+                    </div>
+                    
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                        <tr>
+                            <td style="padding: 8px; border: 1px solid #000; font-weight: 600; width: 40%; background: #f5f5f5;">Водій:</td>
+                            <td style="padding: 8px; border: 1px solid #000;">${driverName}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px; border: 1px solid #000; font-weight: 600; background: #f5f5f5;">Автомобіль (тягач):</td>
+                            <td style="padding: 8px; border: 1px solid #000;">${truck || '—'}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px; border: 1px solid #000; font-weight: 600; background: #f5f5f5;">Причіп:</td>
+                            <td style="padding: 8px; border: 1px solid #000;">${trailer || '—'}</td>
+                        </tr>
+                    </table>
+                    
+                    <h3 style="margin: 25px 0 10px 0; border-bottom: 2px solid #0057B7; padding-bottom: 5px;">МАРШРУТ</h3>
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                        <tr>
+                            <td style="padding: 8px; border: 1px solid #000; font-weight: 600; width: 40%; background: #f5f5f5;">Пункт відправлення:</td>
+                            <td style="padding: 8px; border: 1px solid #000;">${fromAddress}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px; border: 1px solid #000; font-weight: 600; background: #f5f5f5;">Пункт призначення:</td>
+                            <td style="padding: 8px; border: 1px solid #000;">${toAddress}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px; border: 1px solid #000; font-weight: 600; background: #f5f5f5;">Відстань:</td>
+                            <td style="padding: 8px; border: 1px solid #000;">${distance} км</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px; border: 1px solid #000; font-weight: 600; background: #f5f5f5;">Днів у дорозі:</td>
+                            <td style="padding: 8px; border: 1px solid #000;">${days}</td>
+                        </tr>
+                    </table>
+                    
+                    <h3 style="margin: 25px 0 10px 0; border-bottom: 2px solid #0057B7; padding-bottom: 5px;">ПОКАЗАННЯ ПРИЛАДІВ</h3>
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                        <tr style="background: #f5f5f5;">
+                            <th style="padding: 8px; border: 1px solid #000; text-align: left; width: 40%;"></th>
+                            <th style="padding: 8px; border: 1px solid #000; text-align: center; width: 30%;">На початок</th>
+                            <th style="padding: 8px; border: 1px solid #000; text-align: center; width: 30%;">В кінці</th>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px; border: 1px solid #000; font-weight: 600;">Одометр (км):</td>
+                            <td style="padding: 8px; border: 1px solid #000; text-align: center;">${odometerStart || '—'}</td>
+                            <td style="padding: 8px; border: 1px solid #000; text-align: center;">${odometerEnd || '—'}</td>
+                        </tr>
+                        ${mileageDiff > 0 ? `
+                        <tr style="background: #e3f2fd;">
+                            <td style="padding: 8px; border: 1px solid #000; font-weight: 600;">Пробіг за рейс (різниця):</td>
+                            <td colspan="2" style="padding: 8px; border: 1px solid #000; text-align: center; font-weight: 700; color: #0057B7; font-size: 1.1em;">${mileageDiff} км</td>
+                        </tr>
+                        ` : ''}
+                        <tr>
+                            <td style="padding: 8px; border: 1px solid #000; font-weight: 600;">Паливо в баку (л):</td>
+                            <td style="padding: 8px; border: 1px solid #000; text-align: center;">${fuelStart || '—'}</td>
+                            <td style="padding: 8px; border: 1px solid #000; text-align: center;">${fuelEnd || '—'}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px; border: 1px solid #000; font-weight: 600; background: #fff3e0;">Заправлено в дорозі (л):</td>
+                            <td colspan="2" style="padding: 8px; border: 1px solid #000; text-align: center; background: #fff3e0; font-weight: 700;">${fuelRefill || '—'}</td>
+                        </tr>
+                    </table>
+                    
+                    <h3 style="margin: 25px 0 10px 0; border-bottom: 2px solid #0057B7; padding-bottom: 5px;">ВИТРАТА ПАЛИВА</h3>
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                        <tr>
+                            <td style="padding: 8px; border: 1px solid #000; font-weight: 600; width: 40%; background: #f5f5f5;">Фактична витрата:</td>
+                            <td style="padding: 8px; border: 1px solid #000;">${fuelConsumption} л/100км</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px; border: 1px solid #000; font-weight: 600; background: #f5f5f5;">Ціна палива:</td>
+                            <td style="padding: 8px; border: 1px solid #000;">${fuelPrice} грн/л</td>
+                        </tr>
+                    </table>
+                    
+                    <div style="margin-top: 50px;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <tr>
+                                <td style="padding: 20px 0; width: 50%;">
+                                    <div>Водій: ___________________________</div>
+                                    <div style="margin-top: 5px; color: #666; font-size: 12px;">(підпис)</div>
+                                </td>
+                                <td style="padding: 20px 0; width: 50%; text-align: right;">
+                                    <div>Диспетчер: ___________________________</div>
+                                    <div style="margin-top: 5px; color: #666; font-size: 12px;">(підпис)</div>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <div style="margin-top: 30px; text-align: center; color: #999; font-size: 11px; page-break-after: always;">
+                        <p>Згенеровано автоматично: ${new Date().toLocaleString('uk-UA')}</p>
+                    </div>
+                    
+                    <div class="no-print" style="text-align: center; margin-top: 30px;">
+                        <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 2px solid #ffc107;">
+                            <div style="font-weight: 600; color: #856404; margin-bottom: 8px;">💾 Як зберегти в PDF:</div>
+                            <div style="font-size: 0.9rem; color: #856404; text-align: left; max-width: 500px; margin: 0 auto;">
+                                <div style="margin: 5px 0;">1. Натисніть кнопку "🖨️ Друкувати" нижче</div>
+                                <div style="margin: 5px 0;">2. В діалозі друку виберіть <strong>"Зберегти як PDF"</strong></div>
+                                <div style="margin: 5px 0;">3. Рекомендована назва файлу:</div>
+                                <div style="background: white; padding: 8px; border-radius: 4px; margin-top: 8px; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; word-break: break-all;">
+                                    <strong>${filename}</strong>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button onclick="window.print()" style="padding: 15px 40px; background: #0057B7; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer;">
+                            🖨️ Друкувати / Зберегти PDF
+                        </button>
+                        <button onclick="document.getElementById('waybillPrint').remove()" style="padding: 15px 40px; background: #6c757d; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; margin-left: 10px;">
+                            ✕ Закрити
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            // Remove old waybill if exists
+            const oldWaybill = document.getElementById('waybillPrint');
+            if (oldWaybill) {
+                oldWaybill.remove();
+            }
+            
+            // Insert waybill into page
+            document.body.insertAdjacentHTML('beforeend', waybillHTML);
+            
+            // Set document title to suggested filename (will be used as default PDF name)
+            const originalTitle = document.title;
+            document.title = filename.replace('.pdf', '');
+            
+            // Scroll to waybill
+            document.getElementById('waybillPrint').scrollIntoView({ behavior: 'smooth' });
+            
+            // Restore original title after print dialog closes
+            window.addEventListener('afterprint', function restoreTitle() {
+                document.title = originalTitle;
+                window.removeEventListener('afterprint', restoreTitle);
+            });
+        }
+
         // ============ PWA FUNCTIONALITY ============
         
         // Register Service Worker
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./service-worker.js?v=2.1')
+                navigator.serviceWorker.register('./service-worker.js?v=2.3')
                     .then((registration) => {
                         console.log('✅ PWA: Service Worker зареєстровано', registration.scope);
                     })
