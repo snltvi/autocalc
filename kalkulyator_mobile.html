@@ -3,14 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Калькулятор">
     <meta name="theme-color" content="#0057B7">
-    <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="manifest.json?v=2.1">
     <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect fill='%230057B7' width='200' height='200'/%3E%3Ctext x='100' y='120' font-size='100' text-anchor='middle' fill='white'%3E🚛%3C/text%3E%3C/svg%3E">
-    <title>Калькулятор собівартості рейсу</title>
+    <title>Калькулятор собівартості рейсу v2.1</title>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -327,6 +330,7 @@
         <div class="header">
             <h1>🚛 Калькулятор собівартості</h1>
             <p>Розрахунок витрат на рейс</p>
+            <div style="margin-top: 8px; font-size: 0.75rem; opacity: 0.7;">v2.1 - Автозаповнення вулиць</div>
         </div>
 
         <div class="card">
@@ -1599,7 +1603,7 @@
         // Register Service Worker
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./service-worker.js')
+                navigator.serviceWorker.register('./service-worker.js?v=2.1')
                     .then((registration) => {
                         console.log('✅ PWA: Service Worker зареєстровано', registration.scope);
                     })
