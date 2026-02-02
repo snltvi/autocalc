@@ -11,9 +11,9 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Калькулятор">
     <meta name="theme-color" content="#0057B7">
-    <link rel="manifest" href="manifest.json?v=2.3">
+    <link rel="manifest" href="manifest.json?v=2.4">
     <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect fill='%230057B7' width='200' height='200'/%3E%3Ctext x='100' y='120' font-size='100' text-anchor='middle' fill='white'%3E🚛%3C/text%3E%3C/svg%3E">
-    <title>Калькулятор собівартості рейсу v2.3</title>
+    <title>Калькулятор собівартості рейсу v2.4</title>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -352,7 +352,7 @@
         <div class="header">
             <h1>🚛 Калькулятор собівартості</h1>
             <p>Розрахунок витрат на рейс</p>
-            <div style="margin-top: 8px; font-size: 0.75rem; opacity: 0.7;">v2.3 - PDF з авто-назвою + Різниця пробігу</div>
+            <div style="margin-top: 8px; font-size: 0.75rem; opacity: 0.7;">v2.4 - Обмеження пошуку 5 країнами</div>
         </div>
 
         <div class="card">
@@ -1049,9 +1049,9 @@
 
                         let apiResults = [];
                         try {
-                            // Also search via API for any city
+                            // Search only in Ukraine, Moldova, Romania, Bulgaria, Turkey
                             const response = await fetch(
-                                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(val)}&limit=5&addressdetails=1`,
+                                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(val)}&countrycodes=ua,md,ro,bg,tr&limit=5&addressdetails=1`,
                                 {
                                     headers: {
                                         'Accept-Language': 'uk,ru,en,ro,bg,tr'
@@ -1198,7 +1198,7 @@
                 const streetVal = this.value;
                 const cityVal = cityInput.value.trim();
                 
-                closeAllLists();
+                closeAllListsStreet();
                 
                 // Need at least 2 characters and a city selected
                 if (!streetVal || streetVal.length < 2) { 
@@ -1229,11 +1229,13 @@
                 // Search with delay
                 searchTimeout = setTimeout(async () => {
                     try {
-                        // Search for streets in the selected city
+                        // Search for streets in the selected city (only in specified countries)
                         const searchQuery = `${streetVal}, ${cityVal}`;
                         
+                        console.log('Пошук вулиць:', searchQuery);
+                        
                         const response = await fetch(
-                            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=8&addressdetails=1`,
+                            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&countrycodes=ua,md,ro,bg,tr&limit=8&addressdetails=1`,
                             {
                                 headers: {
                                     'Accept-Language': 'uk,ru,en,ro,bg,tr'
@@ -1246,6 +1248,7 @@
                         }
                         
                         const results = await response.json();
+                        console.log('Результати пошуку вулиць:', results);
 
                         // Clear loading
                         autocompleteDiv.innerHTML = '';
@@ -1267,6 +1270,7 @@
                         });
 
                         const streetsArray = Array.from(uniqueStreets).slice(0, 8);
+                        console.log('Унікальні вулиці:', streetsArray);
 
                         if (streetsArray.length > 0) {
                             streetsArray.forEach(streetName => {
@@ -1290,14 +1294,14 @@
                                 
                                 itemDiv.addEventListener("click", function(e) {
                                     streetInput.value = this.getElementsByTagName("input")[0].value;
-                                    closeAllLists();
+                                    closeAllListsStreet();
                                 });
                                 
                                 autocompleteDiv.appendChild(itemDiv);
                             });
                         } else {
                             const noMatch = document.createElement("DIV");
-                            noMatch.innerHTML = "<span style='color: #6c757d;'>💡 Вулиць не знайдено</span>";
+                            noMatch.innerHTML = "<span style='color: #6c757d;'>💡 Вулиць не знайдено в цьому місті</span>";
                             noMatch.style.pointerEvents = "none";
                             autocompleteDiv.appendChild(noMatch);
                         }
@@ -1318,10 +1322,10 @@
                 if (x) x = x.getElementsByTagName("div");
                 if (e.keyCode == 40) { // DOWN
                     currentFocus++;
-                    addActive(x);
+                    addActiveStreet(x);
                 } else if (e.keyCode == 38) { // UP
                     currentFocus--;
-                    addActive(x);
+                    addActiveStreet(x);
                 } else if (e.keyCode == 13) { // ENTER
                     e.preventDefault();
                     if (currentFocus > -1) {
@@ -1330,21 +1334,21 @@
                 }
             });
 
-            function addActive(x) {
+            function addActiveStreet(x) {
                 if (!x) return false;
-                removeActive(x);
+                removeActiveStreet(x);
                 if (currentFocus >= x.length) currentFocus = 0;
                 if (currentFocus < 0) currentFocus = (x.length - 1);
                 x[currentFocus].classList.add("autocomplete-active");
             }
 
-            function removeActive(x) {
+            function removeActiveStreet(x) {
                 for (let i = 0; i < x.length; i++) {
                     x[i].classList.remove("autocomplete-active");
                 }
             }
 
-            function closeAllLists(elmnt) {
+            function closeAllListsStreet(elmnt) {
                 const items = document.getElementsByClassName("autocomplete-items");
                 for (let i = 0; i < items.length; i++) {
                     if (elmnt != items[i] && elmnt != streetInput) {
@@ -1354,7 +1358,7 @@
             }
 
             document.addEventListener("click", function (e) {
-                closeAllLists(e.target);
+                closeAllListsStreet(e.target);
             });
         }
 
@@ -1529,10 +1533,9 @@
             
             console.log('Пошук координат для:', location);
             
-            // Try multiple search strategies
+            // Try multiple search strategies (limited to Ukraine, Moldova, Romania, Bulgaria, Turkey)
             const searches = [
                 location,                          // As is
-                `${location}, Europe`,            // In Europe
                 location.split(',')[0].trim()     // Just city name without address
             ];
 
@@ -1541,7 +1544,7 @@
                     console.log('Спроба пошуку:', searchQuery);
                     
                     const response = await fetch(
-                        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=15&addressdetails=1`,
+                        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&countrycodes=ua,md,ro,bg,tr&limit=15&addressdetails=1`,
                         {
                             headers: {
                                 'Accept-Language': 'uk,ru,en,ro,bg,tr'
@@ -1947,7 +1950,7 @@
         // Register Service Worker
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./service-worker.js?v=2.3')
+                navigator.serviceWorker.register('./service-worker.js?v=2.4')
                     .then((registration) => {
                         console.log('✅ PWA: Service Worker зареєстровано', registration.scope);
                     })
