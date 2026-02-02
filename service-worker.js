@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kalkulyator-v2.1';
+const CACHE_NAME = 'kalkulyator-v2.3';
 const urlsToCache = [
   './kalkulyator_mobile.html',
   'https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap'
@@ -6,7 +6,7 @@ const urlsToCache = [
 
 // Install service worker and cache files
 self.addEventListener('install', (event) => {
-  console.log('Service Worker: Installing v2.1...');
+  console.log('Service Worker: Installing v2.3...');
   // Force immediate activation
   self.skipWaiting();
   event.waitUntil(
